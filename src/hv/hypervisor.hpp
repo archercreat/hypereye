@@ -1,0 +1,46 @@
+#pragma once
+#include "shared/std/utility.hpp"
+#include "shared/std/unique.hpp"
+
+#include "ept.hpp"
+#include "vcpu.hpp"
+
+#include "arch/cr.hpp"
+
+struct vcpu_t;
+
+struct hypervisor final : public std::singleton<hypervisor>
+{
+    friend struct std::singleton<hypervisor>;
+
+    bool enter();
+    bool leave();
+
+    bool is_running() const { return state == state_t::on; }
+
+    /// @brief Get system process cr3 value.
+    ///
+    cr3_t system_process_pagetable() const;
+
+    /// @brief Check for vmx support.
+    ///
+    static bool supported();
+
+    /// @brief Virtual machines per core.
+    ///
+    vcpu_t* vcpu;
+
+protected:
+    hypervisor();
+    ~hypervisor();
+
+private:
+    /// @brief Hypervisor running state.
+    ///
+    state_t state;
+
+    /// @brief CR3 value of the system process.
+    /// Used as `host cr3` value in vmcs. Initialized during class construction.
+    ///
+    cr3_t kernel_page_table;
+};
