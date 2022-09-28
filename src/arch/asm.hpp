@@ -1,15 +1,17 @@
 #pragma once
 
+#include <cstdint>
+
 /// @brief Registers controls.
 ///
-extern "C" unsigned long long asm_read_dr0();
-extern "C" unsigned long long asm_read_dr1();
-extern "C" unsigned long long asm_read_dr2();
-extern "C" unsigned long long asm_read_dr3();
-extern "C" unsigned long long asm_read_dr6();
-extern "C" unsigned long long asm_read_dr7();
+extern "C" uint64_t asm_read_dr0();
+extern "C" uint64_t asm_read_dr1();
+extern "C" uint64_t asm_read_dr2();
+extern "C" uint64_t asm_read_dr3();
+extern "C" uint64_t asm_read_dr6();
+extern "C" uint64_t asm_read_dr7();
 
-extern "C" unsigned long long asm_read_rflags();
+extern "C" uint64_t asm_read_rflags();
 
 extern "C" void asm_read_gdtr(void* gdtr);
 extern "C" void asm_read_idtr(void* idtr);
@@ -19,24 +21,26 @@ extern "C" void asm_write_idtr(const void* idtr);
 
 /// @brief Selectors.
 ///
-extern "C" unsigned short asm_read_cs();
-extern "C" unsigned short asm_read_ds();
-extern "C" unsigned short asm_read_es();
-extern "C" unsigned short asm_read_ss();
-extern "C" unsigned short asm_read_fs();
-extern "C" unsigned short asm_read_gs();
-extern "C" unsigned short asm_read_tr();
-extern "C" unsigned short asm_read_ldtr();
+extern "C" uint16_t asm_read_cs();
+extern "C" uint16_t asm_read_ds();
+extern "C" uint16_t asm_read_es();
+extern "C" uint16_t asm_read_ss();
+extern "C" uint16_t asm_read_fs();
+extern "C" uint16_t asm_read_gs();
+extern "C" uint16_t asm_read_tr();
+extern "C" uint16_t asm_read_ldtr();
 
-/// @brief
+/// @brief Read segment access rights.
 ///
-extern "C" unsigned long long asm_lar(unsigned long long);
+extern "C" uint64_t asm_lar(uint64_t);
 
 /// @brief VMX invalidate ept.
 ///
-extern "C" unsigned long long asm_invept(unsigned long long, void*);
+extern "C" uint64_t asm_invept(uint64_t, void*);
 
-extern "C" unsigned long long asm_invvpid(unsigned long long, void*);
+/// @brief VMX invalidate vpid.
+///
+extern "C" uint64_t asm_invvpid(uint64_t, void*);
 
 /// @brief VMX call hypervisor.
 ///
@@ -46,7 +50,7 @@ extern "C" bool asm_vmcall(void*, void*, void*, void*);
 ///
 extern "C" void vmexit_stub();
 
-/// @brief VMX initialize guest.
+/// @brief Launch vm. Return 0 on success meaning cpu executing now
+/// in non-root operation. return error code based on __vmx_vmlaunch intrinsic.
 ///
-extern "C" bool vminit_stub(void*, void*);
-extern "C" bool vmresume_stub();
+extern "C" uint8_t asm_vmlaunch();

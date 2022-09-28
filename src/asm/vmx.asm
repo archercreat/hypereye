@@ -2,15 +2,13 @@
 
 EXTERN vmexit_handler:PROC
 
-PUBLIC asm_invept
-PUBLIC asm_invvpid
-PUBLIC vmexit_stub
-PUBLIC vminit_stub
-PUBLIC vmresume_stub
-
 VMX_ERROR_CODE_SUCCESS            = 0
 VMX_ERROR_CODE_FAILED_WITH_STATUS = 1
 VMX_ERROR_CODE_FAILED             = 2
+
+VMCS_GUEST_RSP    = 0681Ch
+VMCS_GUEST_RIP    = 0681Eh
+VMCS_GUEST_RFLAGS = 06820h
 
 PUSHAQ MACRO
     push r15
@@ -86,40 +84,46 @@ error:
     int 3
 vmexit_stub endp
 
-; void vminit_stub(void* function, vcpu_t*)
-;
-vminit_stub proc
+asm_vmlaunch proc
+    mov     rcx, VMCS_GUEST_RSP
+    vmwrite rcx, rsp        ; Set guest stack to the current stack.
+    setz    al
+    setb    cl
+    adc     al, cl
+    test    al, al
+    jnz     @failure
+
+    mov     rcx, VMCS_GUEST_RIP
+    lea     rdx, @done
+    vmwrite rcx, rdx        ; Set guest rip to the `done` label.
+    setz    al
+    setb    cl
+    adc     al, cl
+    test    al, al
+    jnz     @failure
+
     pushfq
-    PUSHAQ
+    pop     rdx
+    mov     rcx, VMCS_GUEST_RFLAGS
+    vmwrite rcx, rdx        ; Set guest rflags.
+    setz    al
+    setb    cl
+    adc     al, cl
+    test    al, al
+    jnz     @failure
 
-    mov rax, rcx
-    mov rcx, rdx
-    mov rdx, rsp
-    sub rsp, 20h
-
-    call rax        ; function(vcpu*, context_t*)
-                    ; If all goes well we continue from `vmresume_stub`.
-                    ;
-    add rsp, 20h
-
-    POPAQ
-    popfq
-
-    xor rax, rax    ; Return false.
+    vmlaunch                ; Following __vmx_vmlaunch abi.
+    setz    al
+    setb    cl
+    adc     al, cl
     ret
 
-vminit_stub endp
-
-; Guest will execute from here.
-;
-vmresume_stub proc
-    POPAQ
-    popfq
-
-    xor rax, rax
-    inc rax         ; Return true.
+@done:
+    xor     rax, rax
+@failure:
     ret
-vmresume_stub endp
+
+asm_vmlaunch endp
 
 asm_invept proc
     invept  rcx, oword ptr [rdx]

@@ -78,7 +78,7 @@ inline uint8_t write(vmcs field, uint64_t value)
 
 inline uint8_t launch()
 {
-    return __vmx_vmlaunch();
+    return asm_vmlaunch();
 }
 
 /// @brief Invalidate ept.

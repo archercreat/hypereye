@@ -66,31 +66,44 @@ template<> inline idtr_t read()
     return idtr;
 }
 
-// template <> inline void write(gdtr_t gdtr)
-// {
-//     asm_write_gdtr(&gdtr);
-// }
+template <> inline void write(gdtr_t gdtr)
+{
+    asm_write_gdtr(&gdtr);
+}
 
-// template <> inline void write(idtr_t idtr)
-// {
-//     asm_write_idtr(&idtr);
-// }
+template <> inline void write(idtr_t idtr)
+{
+    asm_write_idtr(&idtr);
+}
 
-/// @brief Generic segment access implementation.
-///
-#define impl_read(name)                                             \
-    template<> inline name ##_t read()                              \
-    {                                                               \
-        const auto name = asm_read_ ##name();                       \
-        const auto base = !std::scmp(#name, "gs") ?                 \
-            read<msr::gsbase>().flags : !std::scmp(#name, "fs") ?   \
-            read<msr::fsbase>().flags : 0;                          \
-        return name ##_t {                                          \
-            name,                                                   \
-            __segmentlimit(name),                                   \
-            name ? (asm_lar(name) >> 8) & 0xf0ff : 0x10000,         \
-            base                                                    \
-        };                                                          \
+#define impl_read(name)                                                                 \
+    template<> inline segment_t<name ##_t> read()                                       \
+    {                                                                                   \
+        segment_t<name ##_t> segment{};                                                 \
+        const auto selector = name ##_t{ asm_read_ ##name() };                          \
+        segment.selector    = selector;                                                 \
+        segment.limit       = __segmentlimit(selector.flags);                           \
+        segment.rights      = access_t                                                  \
+        {                                                                               \
+            .flags = static_cast<uint32_t>((asm_lar(selector.flags) >> 8) & 0xf0ff)     \
+        };                                                                              \
+        segment.rights.unusable = selector.flags ? 0 : 1;                               \
+                                                                                        \
+        if (!std::scmp(#name, "gs"))                                                    \
+        {                                                                               \
+            segment.base = read<msr::gsbase>().flags;                                   \
+        }                                                                               \
+        else if (!std::scmp(#name, "fs"))                                               \
+        {                                                                               \
+            segment.base = read<msr::fsbase>().flags;                                   \
+        }                                                                               \
+        else                                                                            \
+        {                                                                               \
+            const auto desc = reinterpret_cast<descriptor_t*>(                          \
+                read<gdtr_t>().base + selector.index * 8);                              \
+            segment.base = desc->base();                                                \
+        }                                                                               \
+        return segment;                                                                 \
     }
 
 impl_read(es);
@@ -99,33 +112,7 @@ impl_read(ss);
 impl_read(ds);
 impl_read(fs);
 impl_read(gs);
-
-#undef impl_read
-
-#define impl_read(name)                                                                                 \
-    template<> inline name ##_t read()                                                                  \
-    {                                                                                                   \
-        const auto gdtr    = read<gdtr_t>();                                                            \
-        const auto sel     = selector_t{ asm_read_ ##name() };                                          \
-        descriptor_t* desc = nullptr;                                                                   \
-        if (sel.ti)                                                                                     \
-        {                                                                                               \
-            const auto ldtr = selector_t{ asm_read_ldtr() };                                            \
-            desc = reinterpret_cast<descriptor_t*>(gdtr.base    + ldtr.index * sizeof(descriptor_t));   \
-            desc = reinterpret_cast<descriptor_t*>(desc->base() + sel.index  * sizeof(descriptor_t));   \
-        }                                                                                               \
-        else                                                                                            \
-            desc = reinterpret_cast<descriptor_t*>(gdtr.base + sel.index * sizeof(descriptor_t));       \
-                                                                                                        \
-        return name ##_t {                                                                              \
-            sel.flags,                                                                                  \
-            __segmentlimit(sel.flags),                                                                  \
-            sel.flags ? (asm_lar(sel.flags) >> 8) & 0xf0ff : 0x10000,                                   \
-            desc->base()                                                                                \
-        };                                                                                              \
-    }
-
-impl_read(ldtr);
 impl_read(tr);
+impl_read(ldtr);
 
 #undef impl_read

@@ -9,26 +9,12 @@
 
 static void handle_cpuid(cpu::context_t* context)
 {
-    if (context->rax == 1)
-    {
-        auto features = read<cpuid::processor_features>();
-        // Mark hypervisor as present.
-        //
-        features.hypervisor = true;
-        context->rax = features.eax;
-        context->rbx = features.ebx;
-        context->rcx = features.ecx;
-        context->rdx = features.edx;
-    }
-    else
-    {
-        int info[4];
-        __cpuidex(info, context->eax, context->ecx);
-        context->rax = info[0];
-        context->rbx = info[1];
-        context->rcx = info[2];
-        context->rdx = info[3];
-    }
+    int info[4];
+    __cpuidex(info, context->eax, context->ecx);
+    context->rax = info[0];
+    context->rbx = info[1];
+    context->rcx = info[2];
+    context->rdx = info[3];
 }
 
 static void handle_msr_read(cpu::context_t* context)
@@ -49,13 +35,6 @@ extern "C" bool vmexit_handler(cpu::context_t* context)
     const auto reason = static_cast<vmx::exit_reason>(vmx::read(vmx::vmcs::vm_exit_reason) & 0xffff);
     const auto rip    = vmx::read(vmx::vmcs::guest_rip);
     const auto len    = vmx::read(vmx::vmcs::vm_exit_instruction_len);
-    const auto cr3    = read<cr3_t>();
-
-    context->rsp      = vmx::read(vmx::vmcs::guest_rsp);
-
-    write<cr3_t>(cr3_t{ vmx::read(vmx::vmcs::guest_cr3) });
-
-    logger::info("vmexit code: %d rip: 0x%016llx", reason, rip);
 
     switch (reason)
     {
@@ -104,7 +83,6 @@ extern "C" bool vmexit_handler(cpu::context_t* context)
         break;
     }
 
-    write<cr3_t>(cr3);
     vmx::write(vmx::vmcs::guest_rip, rip + len);
 
     return terminate;

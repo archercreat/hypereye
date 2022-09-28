@@ -20,6 +20,7 @@ bool handle_vmcall(cpu::context_t* context)
     }
     case vmcall_reason::vmxoff:
     {
+        logger::info("vmxoff called");
         // Set rcx to the next instruction address and rdx to the guest stack pointer.
         //
         context->rax = 1;
@@ -27,9 +28,9 @@ bool handle_vmcall(cpu::context_t* context)
         context->rdx = vmx::read(vmx::vmcs::guest_rsp);
         // Since we will not vmresume, we must overwrite host cr3 with the guest cr3.
         //
-        // write<cr3_t> ({ vmx::read(vmx::vmcs::guest_cr3) });
-        // write<gdtr_t>({ vmx::read(vmx::vmcs::guest_gdtr_limit) & 0xffff, vmx::read(vmx::vmcs::guest_gdtr_base) });
-        // write<idtr_t>({ vmx::read(vmx::vmcs::guest_idtr_limit) & 0xffff, vmx::read(vmx::vmcs::guest_idtr_base) });
+        write<cr3_t> ({ vmx::read(vmx::vmcs::guest_cr3) });
+        write<gdtr_t>({ vmx::read(vmx::vmcs::guest_gdtr_limit) & 0xffff, vmx::read(vmx::vmcs::guest_gdtr_base) });
+        write<idtr_t>({ vmx::read(vmx::vmcs::guest_idtr_limit) & 0xffff, vmx::read(vmx::vmcs::guest_idtr_base) });
 
         terminate = true;
         break;

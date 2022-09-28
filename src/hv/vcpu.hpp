@@ -31,10 +31,6 @@ struct vcpu_t final
     ///
     bool enter();
 
-    /// @brief Virtualize currently running system.
-    ///
-    bool enter(const cpu::context_t* ctx);
-
     /// @brief
     ///
     void leave();
@@ -58,5 +54,5 @@ private:
     bool setup_guest();
     bool setup_host();
     bool setup_controls();
-    bool setup_vmcs(const cpu::context_t* ctx);
+    bool setup_vmcs();
 };

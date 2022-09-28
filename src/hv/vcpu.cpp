@@ -49,11 +49,6 @@ uint64_t adjust_controls(uint64_t value, uint64_t mask)
     value |= mask & 0xffffffff;
     return value;
 }
-
-bool virtualize(vcpu_t* vcpu, const cpu::context_t* ctx)
-{
-    return vcpu->enter(ctx);
-}
 };
 
 vcpu_t::vcpu_t() : state(state_t::off)
@@ -81,20 +76,6 @@ vcpu_t::~vcpu_t()
 
 bool vcpu_t::enter()
 {
-    if (is_off())
-    {
-        if (vminit_stub(virtualize, this))
-        {
-            // We are running in guest mode. Mark state as `on`.
-            //
-            state = state_t::on;
-        }
-    }
-    return is_on();
-}
-
-bool vcpu_t::enter(const cpu::context_t* ctx)
-{
     if (!is_off())
         return false;
 
@@ -103,7 +84,6 @@ bool vcpu_t::enter(const cpu::context_t* ctx)
     // Enable vmx.
     //
     cr4.vmxe = true;
-    write<cr4_t>(cr4);
     // Adjust CR0 and CR4 registers.
     //
     cr0.flags |= read<msr::vmx_cr0_fixed0>().flags;
@@ -130,7 +110,6 @@ bool vcpu_t::enter(const cpu::context_t* ctx)
     state = state_t::init;
 
     vmx::invvpid_all_contexts();
-
     vmx::invept_all_contexts();
 
     if (vmx::clear(vmcs->pa()) || vmx::vmptrld(vmcs->pa()))
@@ -139,17 +118,22 @@ bool vcpu_t::enter(const cpu::context_t* ctx)
         return false;
     }
 
-    if (!setup_vmcs(ctx))
+    if (!setup_guest() || !setup_host() || !setup_controls())
     {
         logger::info("Failed to setup vmcs");
         return false;
     }
 
-    vmx::launch();
-    // Should never be here if all goes well.
-    //
-    logger::info("Failed to launch with the code: 0x%lx", vmx::read(vmx::vmcs::vm_instruction_error));
-    return false;
+    if (vmx::launch())
+    {
+        logger::info("Failed to launch with code: 0x%lx", vmx::read(vmx::vmcs::vm_instruction_error));
+    }
+    else
+    {
+        logger::info("running in vmx non-root on core %d", cpu::current());
+        state = state_t::on;
+    }
+    return is_on();
 }
 
 void vcpu_t::leave()
@@ -171,9 +155,9 @@ void vcpu_t::leave()
     write<cr4_t>(cr4);
     // Zero out per-processor structs since we might re-enter vm later.
     //
-    __stosb(reinterpret_cast<unsigned char*>(vmxon),       0, sizeof(vmx::vmcs_t));
-    __stosb(reinterpret_cast<unsigned char*>(vmcs),        0, sizeof(vmx::vmcs_t));
-    __stosb(reinterpret_cast<unsigned char*>(msr_bitmap),  0, sizeof(PAGE_SIZE));
+    __stosb(reinterpret_cast<unsigned char*>(vmxon),       0, sizeof(*vmxon));
+    __stosb(reinterpret_cast<unsigned char*>(vmcs),        0, sizeof(*vmcs));
+    __stosb(reinterpret_cast<unsigned char*>(msr_bitmap),  0, sizeof(msr_bitmap));
     __stosb(reinterpret_cast<unsigned char*>(stack),       0, sizeof(stack));
     __stosb(reinterpret_cast<unsigned char*>(io_bitmap_a), 0, sizeof(io_bitmap_a));
     __stosb(reinterpret_cast<unsigned char*>(io_bitmap_b), 0, sizeof(io_bitmap_b));
@@ -182,60 +166,47 @@ void vcpu_t::leave()
     state = state_t::off;
 }
 
-bool vcpu_t::setup_vmcs(const cpu::context_t* ctx)
+bool vcpu_t::setup_host()
 {
-    const auto es   = read<es_t>();
-    const auto cs   = read<cs_t>();
-    const auto ss   = read<ss_t>();
-    const auto ds   = read<ds_t>();
-    const auto fs   = read<fs_t>();
-    const auto gs   = read<gs_t>();
-    const auto tr   = read<tr_t>();
-    const auto ldtr = read<ldtr_t>();
-    const auto gdtr = read<gdtr_t>();
-    const auto idtr = read<idtr_t>();
+    uint8_t err{};
 
-    const auto dr7  = read<dr7_t>();
-    const auto cr0  = read<cr0_t>();
-    const auto cr3  = read<cr3_t>();
-    const auto cr4  = read<cr4_t>();
+    err |= vmx::write(vmx::vmcs::host_es_selector, read<segment_t<es_t>>().selector.flags & 0xf8);
+	err |= vmx::write(vmx::vmcs::host_cs_selector, read<segment_t<cs_t>>().selector.flags & 0xf8);
+	err |= vmx::write(vmx::vmcs::host_ss_selector, read<segment_t<ss_t>>().selector.flags & 0xf8);
+	err |= vmx::write(vmx::vmcs::host_ds_selector, read<segment_t<ds_t>>().selector.flags & 0xf8);
+	err |= vmx::write(vmx::vmcs::host_fs_selector, read<segment_t<fs_t>>().selector.flags & 0xf8);
+	err |= vmx::write(vmx::vmcs::host_gs_selector, read<segment_t<gs_t>>().selector.flags & 0xf8);
+	err |= vmx::write(vmx::vmcs::host_tr_selector, read<segment_t<tr_t>>().selector.flags & 0xf8);
+    err |= vmx::write(vmx::vmcs::host_sysenter_cs, read<msr::sysenter_cs>().flags);
+    // Host cr3 is taken from the hypervisor intance (initialized on driver load).
+    //
+    err |= vmx::write(vmx::vmcs::host_cr3, hypervisor::get().system_process_pagetable().flags);
+    err |= vmx::write(vmx::vmcs::host_cr4, read<cr4_t>().flags);
+    err |= vmx::write(vmx::vmcs::host_cr0, read<cr0_t>().flags);
 
-    const auto sysenter_cs  = read<msr::sysenter_cs>();
-    const auto sysenter_eip = read<msr::sysenter_eip>();
-    const auto sysenter_esp = read<msr::sysenter_esp>();
-    const auto debugctl     = read<msr::debugctl>();
-    const auto vmx_basic    = read<msr::vmx_basic>();
+    err |= vmx::write(vmx::vmcs::host_fs_base,   read<segment_t<fs_t>>().base);
+    err |= vmx::write(vmx::vmcs::host_gs_base,   read<segment_t<gs_t>>().base);
+    err |= vmx::write(vmx::vmcs::host_tr_base,   read<segment_t<tr_t>>().base);
+    err |= vmx::write(vmx::vmcs::host_idtr_base, read<idtr_t>().base);
+    err |= vmx::write(vmx::vmcs::host_gdtr_base, read<gdtr_t>().base);
 
-    cr0_t cr0_mask{};
-    cr3_t cr3_mask{};
-    cr4_t cr4_mask{};
+    err |= vmx::write(vmx::vmcs::host_sysenter_esp, read<msr::sysenter_esp>().flags);
+    err |= vmx::write(vmx::vmcs::host_sysenter_eip, read<msr::sysenter_eip>().flags);
+    // Host rip points to vmexit stub.
+    //
+    err |= vmx::write(vmx::vmcs::host_rip, reinterpret_cast<uintptr_t>(vmexit_stub));
+    // Host rsp points to the top of allocated stack.
+    //
+    err |= vmx::write(vmx::vmcs::host_rsp, reinterpret_cast<uintptr_t>(stack + KERNEL_STACK_SIZE - sizeof(void*)));
 
+    return err == 0;
+}
+
+bool vcpu_t::setup_controls()
+{
     uint8_t err{};
 
     err |= vmx::write(vmx::vmcs::virtual_processor_id, 1);
-
-    err |= vmx::write(vmx::vmcs::guest_es_selector,   es.selector);
-	err |= vmx::write(vmx::vmcs::guest_cs_selector,   cs.selector);
-	err |= vmx::write(vmx::vmcs::guest_ss_selector,   ss.selector);
-	err |= vmx::write(vmx::vmcs::guest_ds_selector,   ds.selector);
-	err |= vmx::write(vmx::vmcs::guest_fs_selector,   fs.selector);
-	err |= vmx::write(vmx::vmcs::guest_gs_selector,   gs.selector);
-	err |= vmx::write(vmx::vmcs::guest_tr_selector,   tr.selector);
-    err |= vmx::write(vmx::vmcs::guest_ldtr_selector, ldtr.selector);
-
-    err |= vmx::write(vmx::vmcs::host_es_selector, es.selector & 0xf8);
-	err |= vmx::write(vmx::vmcs::host_cs_selector, cs.selector & 0xf8);
-	err |= vmx::write(vmx::vmcs::host_ss_selector, ss.selector & 0xf8);
-	err |= vmx::write(vmx::vmcs::host_ds_selector, ds.selector & 0xf8);
-	err |= vmx::write(vmx::vmcs::host_fs_selector, fs.selector & 0xf8);
-	err |= vmx::write(vmx::vmcs::host_gs_selector, gs.selector & 0xf8);
-	err |= vmx::write(vmx::vmcs::host_tr_selector, tr.selector & 0xf8);
-
-    err |= vmx::write(vmx::vmcs::msr_bitmap,  pa_from_va(msr_bitmap));
-    err |= vmx::write(vmx::vmcs::ept_pointer, ept_t::get().ept_pointer().flags);
-
-    err |= vmx::write(vmx::vmcs::vmcs_link_pointer,   ~0ull);
-    err |= vmx::write(vmx::vmcs::guest_ia32_debugctl, debugctl.flags);
 
     err |= vmx::write(vmx::vmcs::pin_based_vm_exec_control, adjust_controls(0, pinbased_control_mask()));
 
@@ -268,6 +239,43 @@ bool vcpu_t::setup_vmcs(const cpu::context_t* ctx)
     };
     err |= vmx::write(vmx::vmcs::vm_entry_controls, adjust_controls(entry_controls.flags, vmentry_control_mask()));
 
+    err |= vmx::write(vmx::vmcs::msr_bitmap,  pa_from_va(msr_bitmap));
+    err |= vmx::write(vmx::vmcs::ept_pointer, ept_t::get().ept_pointer().flags);
+    err |= vmx::write(vmx::vmcs::vmcs_link_pointer, ~0ull);
+
+    return err == 0;
+}
+
+bool vcpu_t::setup_guest()
+{
+    const auto gdtr = read<gdtr_t>();
+    const auto idtr = read<idtr_t>();
+
+    const auto es   = read<segment_t<es_t>>();
+    const auto cs   = read<segment_t<cs_t>>();
+    const auto ss   = read<segment_t<ss_t>>();
+    const auto ds   = read<segment_t<ds_t>>();
+    const auto fs   = read<segment_t<fs_t>>();
+    const auto gs   = read<segment_t<gs_t>>();
+    const auto tr   = read<segment_t<tr_t>>();
+    const auto ldtr = read<segment_t<ldtr_t>>();
+
+    cr0_t cr0_mask{};
+    cr3_t cr3_mask{};
+    cr4_t cr4_mask{};
+
+    uint8_t err{};
+
+    err |= vmx::write(vmx::vmcs::guest_es_selector,   es.selector.flags);
+	err |= vmx::write(vmx::vmcs::guest_cs_selector,   cs.selector.flags);
+	err |= vmx::write(vmx::vmcs::guest_ss_selector,   ss.selector.flags);
+	err |= vmx::write(vmx::vmcs::guest_ds_selector,   ds.selector.flags);
+	err |= vmx::write(vmx::vmcs::guest_fs_selector,   fs.selector.flags);
+	err |= vmx::write(vmx::vmcs::guest_gs_selector,   gs.selector.flags);
+	err |= vmx::write(vmx::vmcs::guest_tr_selector,   tr.selector.flags);
+    err |= vmx::write(vmx::vmcs::guest_ldtr_selector, ldtr.selector.flags);
+    err |= vmx::write(vmx::vmcs::guest_ia32_debugctl, read<msr::debugctl>().flags);
+
     err |= vmx::write(vmx::vmcs::guest_es_limit,   es.limit);
     err |= vmx::write(vmx::vmcs::guest_cs_limit,   cs.limit);
     err |= vmx::write(vmx::vmcs::guest_ss_limit,   ss.limit);
@@ -279,27 +287,26 @@ bool vcpu_t::setup_vmcs(const cpu::context_t* ctx)
     err |= vmx::write(vmx::vmcs::guest_gdtr_limit, gdtr.limit);
     err |= vmx::write(vmx::vmcs::guest_idtr_limit, idtr.limit);
 
-    err |= vmx::write(vmx::vmcs::guest_es_ar_bytes,   es.rights);
-    err |= vmx::write(vmx::vmcs::guest_cs_ar_bytes,   cs.rights);
-    err |= vmx::write(vmx::vmcs::guest_ss_ar_bytes,   ss.rights);
-    err |= vmx::write(vmx::vmcs::guest_ds_ar_bytes,   ds.rights);
-    err |= vmx::write(vmx::vmcs::guest_fs_ar_bytes,   fs.rights);
-    err |= vmx::write(vmx::vmcs::guest_gs_ar_bytes,   gs.rights);
-    err |= vmx::write(vmx::vmcs::guest_tr_ar_bytes,   tr.rights);
-    err |= vmx::write(vmx::vmcs::guest_ldtr_ar_bytes, ldtr.rights);
+    err |= vmx::write(vmx::vmcs::guest_es_ar_bytes,   es.rights.flags);
+    err |= vmx::write(vmx::vmcs::guest_cs_ar_bytes,   cs.rights.flags);
+    err |= vmx::write(vmx::vmcs::guest_ss_ar_bytes,   ss.rights.flags);
+    err |= vmx::write(vmx::vmcs::guest_ds_ar_bytes,   ds.rights.flags);
+    err |= vmx::write(vmx::vmcs::guest_fs_ar_bytes,   fs.rights.flags);
+    err |= vmx::write(vmx::vmcs::guest_gs_ar_bytes,   gs.rights.flags);
+    err |= vmx::write(vmx::vmcs::guest_tr_ar_bytes,   tr.rights.flags);
+    err |= vmx::write(vmx::vmcs::guest_ldtr_ar_bytes, ldtr.rights.flags);
 
-    err |= vmx::write(vmx::vmcs::guest_sysenter_cs, sysenter_cs.flags);
-    err |= vmx::write(vmx::vmcs::host_sysenter_cs,  sysenter_cs.flags);
+    err |= vmx::write(vmx::vmcs::guest_sysenter_cs, read<msr::sysenter_cs>().flags);
 
     err |= vmx::write(vmx::vmcs::cr0_guest_host_mask, cr0_mask.flags);
     err |= vmx::write(vmx::vmcs::cr4_guest_host_mask, cr4_mask.flags);
 
-    err |= vmx::write(vmx::vmcs::cr0_read_shadow, cr0.flags);
-    err |= vmx::write(vmx::vmcs::cr4_read_shadow, cr4.flags);
+    err |= vmx::write(vmx::vmcs::cr0_read_shadow, read<cr0_t>().flags);
+    err |= vmx::write(vmx::vmcs::cr4_read_shadow, read<cr4_t>().flags);
 
-    err |= vmx::write(vmx::vmcs::guest_cr0, cr0.flags);
-    err |= vmx::write(vmx::vmcs::guest_cr3, cr3.flags);
-    err |= vmx::write(vmx::vmcs::guest_cr4, cr4.flags);
+    err |= vmx::write(vmx::vmcs::guest_cr0, read<cr0_t>().flags);
+    err |= vmx::write(vmx::vmcs::guest_cr3, read<cr3_t>().flags);
+    err |= vmx::write(vmx::vmcs::guest_cr4, read<cr4_t>().flags);
 
     err |= vmx::write(vmx::vmcs::guest_es_base,   es.base);
     err |= vmx::write(vmx::vmcs::guest_cs_base,   cs.base);
@@ -312,32 +319,10 @@ bool vcpu_t::setup_vmcs(const cpu::context_t* ctx)
     err |= vmx::write(vmx::vmcs::guest_gdtr_base, gdtr.base);
     err |= vmx::write(vmx::vmcs::guest_idtr_base, idtr.base);
 
-    err |= vmx::write(vmx::vmcs::guest_dr7, dr7.flags);
+    err |= vmx::write(vmx::vmcs::guest_dr7, read<dr7_t>().flags);
 
-    err |= vmx::write(vmx::vmcs::guest_rsp,    ctx->rsp);
-    err |= vmx::write(vmx::vmcs::guest_rip,    reinterpret_cast<uintptr_t>(vmresume_stub));
-    err |= vmx::write(vmx::vmcs::guest_rflags, ctx->rflags);
-
-    err |= vmx::write(vmx::vmcs::guest_sysenter_esp, sysenter_esp.flags);
-    err |= vmx::write(vmx::vmcs::guest_sysenter_eip, sysenter_eip.flags);
-
-    err |= vmx::write(vmx::vmcs::host_cr0, cr0.flags);
-    // Host cr3 is taken from hypervisor intance.
-    //
-    err |= vmx::write(vmx::vmcs::host_cr3, hypervisor::get().system_process_pagetable().flags);
-    err |= vmx::write(vmx::vmcs::host_cr4, cr4.flags);
-
-    err |= vmx::write(vmx::vmcs::host_fs_base,   fs.base);
-    err |= vmx::write(vmx::vmcs::host_gs_base,   gs.base);
-    err |= vmx::write(vmx::vmcs::host_tr_base,   tr.base);
-    err |= vmx::write(vmx::vmcs::host_idtr_base, idtr.base);
-    err |= vmx::write(vmx::vmcs::host_gdtr_base, gdtr.base);
-
-    err |= vmx::write(vmx::vmcs::host_sysenter_esp, sysenter_esp.flags);
-    err |= vmx::write(vmx::vmcs::host_sysenter_eip, sysenter_eip.flags);
-
-    err |= vmx::write(vmx::vmcs::host_rip, reinterpret_cast<uintptr_t>(vmexit_stub));
-    err |= vmx::write(vmx::vmcs::host_rsp, reinterpret_cast<uintptr_t>(stack + KERNEL_STACK_SIZE - sizeof(void*)));
+    err |= vmx::write(vmx::vmcs::guest_sysenter_esp, read<msr::sysenter_esp>().flags);
+    err |= vmx::write(vmx::vmcs::guest_sysenter_eip, read<msr::sysenter_eip>().flags);
 
     return err == 0;
 }
