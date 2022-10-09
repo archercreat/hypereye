@@ -213,10 +213,6 @@ struct vmcs_t
     uint32_t revision_id;
     uint32_t abort_indicator;
     uint8_t  data[PAGE_SIZE - 8];
-
-    /// @brief Get physical address of this struct.
-    ///
-    uint64_t pa();
 };
 static_assert(sizeof(vmcs_t) == PAGE_SIZE, "VMCS size mismatch");
 };

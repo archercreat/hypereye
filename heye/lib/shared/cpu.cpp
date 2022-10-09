@@ -1,6 +1,6 @@
-#include "shared/std/mutex.hpp"
 #include "shared/cpu.hpp"
-#include "shared/nt.hpp"
+
+#include <ntddk.h>
 
 namespace cpu
 {

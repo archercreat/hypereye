@@ -13,9 +13,9 @@ bool handle_vmcall(cpu::context_t* context)
 
     switch (reason)
     {
-    case vmcall_reason::hello:
+    case vmcall_reason::ping:
     {
-        logger::info("VMCALL: hello from hypervisor :)");
+        logger::info("pong :)");
         break;
     }
     case vmcall_reason::vmxoff:

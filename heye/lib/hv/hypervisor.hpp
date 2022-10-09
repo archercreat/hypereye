@@ -7,20 +7,20 @@
 
 #include "arch/cr.hpp"
 
-struct vcpu_t;
-
-struct hypervisor final : public std::singleton<hypervisor>
+struct hypervisor : public std::singleton<hypervisor>
 {
     friend struct std::singleton<hypervisor>;
 
     bool enter();
     bool leave();
 
-    bool is_running() const { return state == state_t::on; }
+    bool is_running() const;
 
     /// @brief Get system process cr3 value.
     ///
     cr3_t system_process_pagetable() const;
+
+    void ping() const;
 
     /// @brief Check for vmx support.
     ///

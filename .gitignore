@@ -1,2 +1,6 @@
 build
+cert
 .vscode
+.vs
+cli/target
+cli/Cargo.lock

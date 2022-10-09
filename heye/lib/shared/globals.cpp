@@ -1,5 +1,4 @@
-#include "atexit.hpp"
-#include "shared/std/new.hpp"
+#include "globals.hpp"
 
 #define _CRTALLOC$(x) __declspec(allocate(x))
 
@@ -106,8 +105,9 @@ int __cdecl onexit()
     return execute_onexit(onexit_table);
 }
 
-extern "C"
-int __cdecl doinit(void)
+namespace globals
+{
+void initialize()
 {
     // do C initializations.
     //
@@ -115,20 +115,12 @@ int __cdecl doinit(void)
     // do C++ initializations.
     //
     _initterm(__xc_a, __xc_z);
-    return 0;
 }
 
-extern "C"
-int __cdecl doexit(void)
+void teardown()
 {
     // do exit() of atexit().
     //
     onexit();
-    // do C initializations.
-    //
-    _initterm(__xp_a, __xp_z);
-    // do C++ terminations.
-    //
-    _initterm(__xt_a, __xt_z);
-    return 0;
 }
+};

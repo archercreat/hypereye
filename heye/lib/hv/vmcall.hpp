@@ -9,9 +9,9 @@ struct context_t;
 
 enum class vmcall_reason : uint64_t
 {
-    /// @brief For debugging.
+    /// @brief Smoke test.
     ///
-    hello  = 0,
+    ping   = 0,
     /// @brief Turn of hypervisor.
     ///
     vmxoff = 1,

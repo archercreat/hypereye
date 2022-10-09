@@ -1,11 +1,14 @@
 #pragma once
 #include "vmcs.hpp"
 #include "config.hpp"
+#include "arch/arch.hpp"
 
 namespace cpu
 {
 struct context_t;
 };
+
+struct ept_t;
 
 enum class state_t : uint32_t
 {
@@ -22,7 +25,7 @@ enum class state_t : uint32_t
 
 /// @brief Virtual machine context.
 ///
-struct vcpu_t final
+struct vcpu_t
 {
     vcpu_t();
     ~vcpu_t();
@@ -54,5 +57,4 @@ private:
     bool setup_guest();
     bool setup_host();
     bool setup_controls();
-    bool setup_vmcs();
 };

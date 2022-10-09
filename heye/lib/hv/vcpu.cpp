@@ -100,7 +100,7 @@ bool vcpu_t::enter()
     vmcs->revision_id  = read<msr::vmx_basic>().vmcs_id;
     // Enter vmx root opration.
     //
-    if (vmx::on(vmxon->pa()))
+    if (vmx::on(pa_from_va(vmxon)))
     {
         logger::info("__vmxon failed");
         return false;
@@ -112,7 +112,7 @@ bool vcpu_t::enter()
     vmx::invvpid_all_contexts();
     vmx::invept_all_contexts();
 
-    if (vmx::clear(vmcs->pa()) || vmx::vmptrld(vmcs->pa()))
+    if (vmx::clear(pa_from_va(vmcs)) || vmx::vmptrld(pa_from_va(vmcs)))
     {
         logger::info("__vmx_clear || __vmx_vmptrld failed");
         return false;
@@ -130,7 +130,7 @@ bool vcpu_t::enter()
     }
     else
     {
-        logger::info("running in vmx non-root on core %d", cpu::current());
+        logger::info("running in vmx non-root");
         state = state_t::on;
     }
     return is_on();

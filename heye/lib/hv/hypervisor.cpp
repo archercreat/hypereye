@@ -1,10 +1,10 @@
 #include "hypervisor.hpp"
 #include "vmx.hpp"
 
+#include "shared/std/new.hpp"
 #include "shared/asserts.hpp"
 #include "shared/trace.hpp"
 #include "shared/cpu.hpp"
-
 #include "arch/arch.hpp"
 
 hypervisor::hypervisor()
@@ -69,7 +69,6 @@ bool hypervisor::enter()
     }
 
     state = state_t::on;
-
     return true;
 }
 
@@ -81,11 +80,23 @@ bool hypervisor::leave()
     });
 
     state = state_t::off;
-
     return true;
+}
+
+bool hypervisor::is_running() const
+{
+    return state == state_t::on;
 }
 
 cr3_t hypervisor::system_process_pagetable() const
 {
     return kernel_page_table;
+}
+
+void hypervisor::ping() const
+{
+    cpu::for_each([](uint64_t)
+    {
+        vmx::vmcall(vmcall_reason::ping);
+    });
 }

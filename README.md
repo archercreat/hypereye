@@ -1,1 +1,3 @@
-# Windows driver cmake template
+# Hypereye is a type 2 research hypervisor for windows.
+
+Currently WIP.

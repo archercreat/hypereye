@@ -1,3 +1,6 @@
 [submodule "FindWDK"]
 	path = FindWDK
 	url = https://github.com/SergiusTheBest/FindWDK.git
+[submodule "tui/krabsetw"]
+	path = tui/krabsetw
+	url = https://github.com/microsoft/krabsetw.git

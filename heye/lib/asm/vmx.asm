@@ -87,40 +87,32 @@ vmexit_stub endp
 asm_vmlaunch proc
     mov     rcx, VMCS_GUEST_RSP
     vmwrite rcx, rsp        ; Set guest stack to the current stack.
-    setz    al
-    setb    cl
-    adc     al, cl
-    test    al, al
-    jnz     @failure
+    jz      failure
+    jc      failure
 
     mov     rcx, VMCS_GUEST_RIP
-    lea     rdx, @done
+    lea     rdx, done
     vmwrite rcx, rdx        ; Set guest rip to the `done` label.
-    setz    al
-    setb    cl
-    adc     al, cl
-    test    al, al
-    jnz     @failure
+    jz      failure
+    jc      failure
 
     pushfq
     pop     rdx
     mov     rcx, VMCS_GUEST_RFLAGS
     vmwrite rcx, rdx        ; Set guest rflags.
-    setz    al
-    setb    cl
-    adc     al, cl
-    test    al, al
-    jnz     @failure
+    jz      failure
+    jc      failure
 
     vmlaunch                ; Following __vmx_vmlaunch abi.
-    setz    al
-    setb    cl
-    adc     al, cl
-    ret
+    jz      failure
+    jc      failure
 
-@done:
+done:
     xor     rax, rax
-@failure:
+    ret
+failure:
+    xor     rax, rax
+    inc     rax
     ret
 
 asm_vmlaunch endp

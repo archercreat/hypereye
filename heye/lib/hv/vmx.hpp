@@ -54,11 +54,13 @@ inline void off()
     __vmx_off();
 }
 
+[[nodiscard]]
 inline uint8_t clear(uint64_t pa)
 {
     return __vmx_vmclear(reinterpret_cast<uint64_t*>(&pa));
 }
 
+[[nodiscard]]
 inline uint8_t vmptrld(uint64_t pa)
 {
     return __vmx_vmptrld(reinterpret_cast<uint64_t*>(&pa));
@@ -71,11 +73,13 @@ inline uint64_t read(vmcs field)
     return value;
 }
 
+[[nodiscard]]
 inline uint8_t write(vmcs field, uint64_t value)
 {
     return __vmx_vmwrite(static_cast<uint64_t>(field), value);
 }
 
+[[nodiscard]]
 inline uint8_t launch()
 {
     return asm_vmlaunch();
@@ -120,6 +124,9 @@ inline uint64_t invvpid_all_contexts()
 // template<typename T>
 // auto adjust(T value)
 // {
-//     auto is_entry_ctl = std::is_same_v<T, msr::vmx_entry_controls>;
+//     if constexpr (std::is_same_v<T, msr::vmx_entry_controls>)
+//     {
+
+//     }
 // }
 };
