@@ -1,5 +1,5 @@
-#include "shared/std/new.hpp"
-#include "config.hpp"
+#include "heye/shared/std/new.hpp"
+#include "heye/config.hpp"
 
 #include <ntddk.h>
 

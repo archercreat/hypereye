@@ -1,11 +1,11 @@
-#include "vmexit.hpp"
-#include "vmcall.hpp"
-#include "vmcs.hpp"
-#include "vmx.hpp"
+#include "heye/hv/vmexit.hpp"
+#include "heye/hv/vmcall.hpp"
+#include "heye/hv/vmcs.hpp"
+#include "heye/hv/vmx.hpp"
 
-#include "shared/trace.hpp"
-#include "shared/cpu.hpp"
-#include "arch/arch.hpp"
+#include "heye/shared/trace.hpp"
+#include "heye/shared/cpu.hpp"
+#include "heye/arch/arch.hpp"
 
 static void handle_cpuid(cpu::context_t* context)
 {

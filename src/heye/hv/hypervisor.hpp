@@ -1,11 +1,11 @@
 #pragma once
-#include "shared/std/utility.hpp"
-#include "shared/std/unique.hpp"
+#include "heye/shared/std/utility.hpp"
+#include "heye/shared/std/unique.hpp"
 
 #include "ept.hpp"
 #include "vcpu.hpp"
 
-#include "arch/cr.hpp"
+#include "heye/arch/cr.hpp"
 
 struct hypervisor : public std::singleton<hypervisor>
 {

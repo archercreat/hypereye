@@ -1,6 +1,6 @@
 #pragma once
 
-#include "arch/asm.hpp"
+#include "heye/arch/asm.hpp"
 
 #include "vmcall.hpp"
 #include "vmcs.hpp"

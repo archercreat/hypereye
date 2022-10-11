@@ -1,12 +1,12 @@
-#include "hypervisor.hpp"
-#include "vcpu.hpp"
-#include "vmx.hpp"
+#include "heye/hv/hypervisor.hpp"
+#include "heye/hv/vcpu.hpp"
+#include "heye/hv/vmx.hpp"
 
-#include "arch/arch.hpp"
+#include "heye/arch/arch.hpp"
 
-#include "shared/asserts.hpp"
-#include "shared/trace.hpp"
-#include "shared/cpu.hpp"
+#include "heye/shared/asserts.hpp"
+#include "heye/shared/trace.hpp"
+#include "heye/shared/cpu.hpp"
 
 namespace
 {

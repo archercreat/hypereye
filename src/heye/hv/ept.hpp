@@ -1,7 +1,7 @@
 #pragma once
-#include "arch/memory.hpp"
-#include "arch/mtrr.hpp"
-#include "arch/paging.hpp"
+#include "heye/arch/memory.hpp"
+#include "heye/arch/mtrr.hpp"
+#include "heye/arch/paging.hpp"
 
 static constexpr auto pt_enties   = 512;
 static constexpr auto page_walk_4 = 3;

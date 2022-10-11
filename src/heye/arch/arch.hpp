@@ -9,7 +9,7 @@
 #include "mtrr.hpp"
 #include "memory.hpp"
 
-#include "shared/std/traits.hpp"
+#include "heye/shared/std/traits.hpp"
 
 #include <intrin.h>
 
@@ -100,7 +100,7 @@ template <> inline void write(idtr_t idtr)
         else                                                                            \
         {                                                                               \
             const auto desc = reinterpret_cast<descriptor_t*>(                          \
-                read<gdtr_t>().base + selector.index * 8);                              \
+                read<gdtr_t>().base + static_cast<uint64_t>(selector.index) * 8);       \
             segment.base = desc->base();                                                \
         }                                                                               \
         return segment;                                                                 \

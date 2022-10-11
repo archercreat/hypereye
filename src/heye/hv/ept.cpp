@@ -1,6 +1,6 @@
-#include "ept.hpp"
-#include "arch/arch.hpp"
-#include "shared/trace.hpp"
+#include "heye/hv/ept.hpp"
+#include "heye/arch/arch.hpp"
+#include "heye/shared/trace.hpp"
 
 ept_t::ept_t()
 {

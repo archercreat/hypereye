@@ -1,6 +1,6 @@
-#include "shared/cpu.hpp"
-#include "shared/trace.hpp"
-#include "shared/asserts.hpp"
+#include "heye/shared/cpu.hpp"
+#include "heye/shared/trace.hpp"
+#include "heye/shared/asserts.hpp"
 
 #include <ntddk.h>
 #include <winmeta.h>

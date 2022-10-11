@@ -1,5 +1,5 @@
-#include "arch.hpp"
-#include "shared/trace.hpp"
+#include "heye/arch/arch.hpp"
+#include "heye/shared/trace.hpp"
 
 mtrr_descriptor::mtrr_descriptor() : variable_available(0)
 {

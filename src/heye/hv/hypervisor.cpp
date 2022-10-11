@@ -1,18 +1,15 @@
-#include "hypervisor.hpp"
-#include "vmx.hpp"
+#include "heye/hv/hypervisor.hpp"
+#include "heye/hv/vmx.hpp"
 
-#include "shared/std/new.hpp"
-#include "shared/asserts.hpp"
-#include "shared/trace.hpp"
-#include "shared/cpu.hpp"
-#include "arch/arch.hpp"
+#include "heye/shared/std/new.hpp"
+#include "heye/shared/asserts.hpp"
+#include "heye/shared/trace.hpp"
+#include "heye/shared/cpu.hpp"
+#include "heye/arch/arch.hpp"
 
 hypervisor::hypervisor()
-    : vcpu(nullptr), state(state_t::off), kernel_page_table(read<cr3_t>())
+    : vcpu(new vcpu_t[cpu::count()]), state(state_t::off), kernel_page_table(read<cr3_t>())
 {
-    // Allocate vcpu instances.
-    //
-    vcpu = new vcpu_t[cpu::count()];
 }
 
 hypervisor::~hypervisor()

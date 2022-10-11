@@ -1,4 +1,4 @@
-#include "globals.hpp"
+#include "heye/shared/globals.hpp"
 
 #define _CRTALLOC$(x) __declspec(allocate(x))
 

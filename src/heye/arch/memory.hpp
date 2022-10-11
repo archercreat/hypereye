@@ -1,5 +1,5 @@
 #pragma once
-#include "config.hpp"
+#include "heye/config.hpp"
 
 #include <cstdint>
 

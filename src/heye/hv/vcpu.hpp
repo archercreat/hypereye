@@ -1,7 +1,7 @@
 #pragma once
-#include "vmcs.hpp"
-#include "config.hpp"
-#include "arch/arch.hpp"
+#include "heye/hv/vmcs.hpp"
+#include "heye/config.hpp"
+#include "heye/arch/arch.hpp"
 
 namespace cpu
 {

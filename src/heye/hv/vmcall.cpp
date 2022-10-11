@@ -1,10 +1,10 @@
 #include "vmcall.hpp"
 #include "vmx.hpp"
 
-#include "arch/arch.hpp"
+#include "heye/arch/arch.hpp"
 
-#include "shared/trace.hpp"
-#include "shared/cpu.hpp"
+#include "heye/shared/trace.hpp"
+#include "heye/shared/cpu.hpp"
 
 bool handle_vmcall(cpu::context_t* context)
 {
@@ -28,9 +28,9 @@ bool handle_vmcall(cpu::context_t* context)
         context->rdx = vmx::read(vmx::vmcs::guest_rsp);
         // Since we will not vmresume, we must overwrite host cr3 with the guest cr3.
         //
-        write<cr3_t> ({ vmx::read(vmx::vmcs::guest_cr3) });
-        write<gdtr_t>({ vmx::read(vmx::vmcs::guest_gdtr_limit) & 0xffff, vmx::read(vmx::vmcs::guest_gdtr_base) });
-        write<idtr_t>({ vmx::read(vmx::vmcs::guest_idtr_limit) & 0xffff, vmx::read(vmx::vmcs::guest_idtr_base) });
+        write<cr3_t> (cr3_t{ vmx::read(vmx::vmcs::guest_cr3) });
+        write<gdtr_t>(gdtr_t{ static_cast<uint16_t>(vmx::read(vmx::vmcs::guest_gdtr_limit) & 0xffff), vmx::read(vmx::vmcs::guest_gdtr_base) });
+        write<idtr_t>(idtr_t{ static_cast<uint16_t>(vmx::read(vmx::vmcs::guest_idtr_limit) & 0xffff), vmx::read(vmx::vmcs::guest_idtr_base) });
 
         terminate = true;
         break;
