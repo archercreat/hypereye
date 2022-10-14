@@ -7,6 +7,8 @@
 #include "heye/shared/cpu.hpp"
 #include "heye/arch/arch.hpp"
 
+namespace heye
+{
 static void handle_cpuid(cpu::context_t* context)
 {
     int info[4];
@@ -87,3 +89,4 @@ extern "C" bool vmexit_handler(cpu::context_t* context)
 
     return terminate;
 }
+};

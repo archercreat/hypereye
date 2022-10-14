@@ -1,6 +1,5 @@
 #include "heye/shared/cpu.hpp"
 #include "heye/shared/trace.hpp"
-#include "heye/shared/asserts.hpp"
 
 #include <ntddk.h>
 #include <winmeta.h>
@@ -18,6 +17,8 @@ TRACELOGGING_DEFINE_PROVIDER(
     (0x60c3d354, 0xedc4, 0x4d20, 0x81, 0x32, 0xe1, 0x6d, 0x9e, 0xeb, 0xa9, 0x6c)
 );
 
+namespace heye
+{
 namespace detail
 {
 static bool initialized = false;
@@ -34,16 +35,14 @@ void do_trace(const char* message)
 }
 };
 
-logger::logger()
+bool logger::setup()
 {
-    fassert(NT_SUCCESS(TraceLoggingRegister(provider)));
-    // This class is a singleton meaning this constructor will only be called once.
-    // So we don't have to use atomics here.
-    //
-    detail::initialized = true;
+    if (NT_SUCCESS(TraceLoggingRegister(provider)))
+        detail::initialized = true;
+    return detail::initialized;
 }
 
-logger::~logger()
+void logger::teardown()
 {
     TraceLoggingUnregister(provider);
     detail::initialized = false;
@@ -61,3 +60,4 @@ void logger::info(const char* format, ...)
         detail::do_trace(message);
     }
 }
+};

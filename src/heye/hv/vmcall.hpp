@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+namespace heye
+{
 namespace cpu
 {
 struct context_t;
@@ -22,3 +24,4 @@ enum class vmcall_reason : uint64_t
 /// rdx - arbitrary context.
 ///
 bool handle_vmcall(cpu::context_t* context);
+};

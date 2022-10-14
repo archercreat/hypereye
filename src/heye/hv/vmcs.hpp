@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace vmx
+namespace heye::vmx
 {
 enum class vmcs : uint64_t
 {

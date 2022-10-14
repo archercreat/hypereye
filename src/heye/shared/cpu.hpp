@@ -3,7 +3,7 @@
 #include "std/callable.hpp"
 #include <cstdint>
 
-namespace cpu
+namespace heye::cpu
 {
 struct alignas(8) context_t
 {

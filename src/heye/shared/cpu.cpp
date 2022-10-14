@@ -2,7 +2,7 @@
 
 #include <ntddk.h>
 
-namespace cpu
+namespace heye::cpu
 {
 uint64_t count()
 {

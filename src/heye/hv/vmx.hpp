@@ -8,7 +8,7 @@
 #include <intrin.h>
 #include <cstdint>
 
-namespace vmx
+namespace heye::vmx
 {
 enum class invept_t : uint64_t
 {

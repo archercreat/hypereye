@@ -6,6 +6,8 @@
 #include "heye/shared/trace.hpp"
 #include "heye/shared/cpu.hpp"
 
+namespace heye
+{
 bool handle_vmcall(cpu::context_t* context)
 {
     bool terminate    = false;
@@ -40,3 +42,4 @@ bool handle_vmcall(cpu::context_t* context)
     }
     return terminate;
 }
+};

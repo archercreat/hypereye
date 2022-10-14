@@ -1,6 +1,6 @@
-#include "heye/shared/std/new.hpp"
 #include "heye/config.hpp"
 
+#include <cstdint>
 #include <ntddk.h>
 
 void* operator new(size_t size) noexcept

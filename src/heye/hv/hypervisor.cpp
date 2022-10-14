@@ -1,23 +1,43 @@
 #include "heye/hv/hypervisor.hpp"
 #include "heye/hv/vmx.hpp"
 
-#include "heye/shared/std/new.hpp"
-#include "heye/shared/asserts.hpp"
 #include "heye/shared/trace.hpp"
 #include "heye/shared/cpu.hpp"
 #include "heye/arch/arch.hpp"
 
-hypervisor::hypervisor()
-    : vcpu(new vcpu_t[cpu::count()]), state(state_t::off), kernel_page_table(read<cr3_t>())
+namespace heye
 {
+hv_t::hv_t() : state(state_t::off), kernel_page_table(read<cr3_t>())
+{
+    // Although all `new` allocations come from `ExAllocatePoolZero`, we zero initialize vcpu array.
+    //
+    __stosb(reinterpret_cast<unsigned char*>(vcpu), 0, sizeof(vcpu));
+    // Allocate and initialize vcpu.
+    //
+    for (size_t core = 0; core < cpu::count(); core++)
+    {
+        vcpu[core] = new vcpu_t(this);
+    }
+    // Allocate and initialize ept.
+    //
+    ept = new ept_t;
 }
 
-hypervisor::~hypervisor()
+hv_t::~hv_t()
 {
-    delete[] vcpu;
+    stop();
+    // Delete all vcpu instances.
+    //
+    for (auto core : vcpu)
+    {
+        if (core != nullptr)
+        {
+            delete core;
+        }
+    }
 }
 
-bool hypervisor::supported()
+bool hv_t::supported()
 {
     const auto features  = read<cpuid::processor_features>();
     const auto controls  = read<msr::feature_control>();
@@ -39,29 +59,37 @@ bool hypervisor::supported()
         && mtrr_type.mtrr_enable;
 }
 
-bool hypervisor::enter()
+bool hv_t::start()
 {
-    if (state == state_t::on || !supported())
+    if (is_running() || !supported())
         return false;
 
-    bool failed_setup{ false };
-
+    volatile bool failed_start{ false };
+    // Enter VMM on all cores. This function runs at IPI_LEVEL.
+    //
     cpu::for_each([&, this](uint64_t cpu_number)
     {
-        if (vcpu[cpu_number].is_off())
+        auto current_vcpu = vcpu[cpu_number];
+        if (current_vcpu != nullptr && current_vcpu->is_off())
         {
-            if (!vcpu[cpu_number].enter())
+            if (!current_vcpu->start())
             {
-                logger::info("Failed to virtualize %ld core.", cpu_number);
-                failed_setup |= true;
+                logger::info("Failed to virtualize %ld core", cpu_number);
+                failed_start = true;
             }
+        }
+        else
+        {
+            failed_start = true;
         }
     });
 
-    if (failed_setup)
+    _mm_mfence();
+
+    if (failed_start)
     {
-        logger::info("hypervisor::enter() failed.");
-        leave();
+        logger::info("Failed to start hypervisor");
+        stop();
         return false;
     }
 
@@ -69,31 +97,29 @@ bool hypervisor::enter()
     return true;
 }
 
-bool hypervisor::leave()
+void hv_t::stop()
 {
+    // Leave vmm on all cores.
+    //
     cpu::for_each([this](uint64_t cpu_number)
     {
-        vcpu[cpu_number].leave();
+        if (vcpu[cpu_number] != nullptr)
+        {
+            vcpu[cpu_number]->stop();
+        }
     });
-
+    // Mark state as off.
+    //
     state = state_t::off;
-    return true;
 }
 
-bool hypervisor::is_running() const
+bool hv_t::is_running() const
 {
     return state == state_t::on;
 }
 
-cr3_t hypervisor::system_process_pagetable() const
+cr3_t hv_t::system_process_pagetable() const
 {
     return kernel_page_table;
 }
-
-void hypervisor::ping() const
-{
-    cpu::for_each([](uint64_t)
-    {
-        vmx::vmcall(vmcall_reason::ping);
-    });
-}
+};

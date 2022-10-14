@@ -1,18 +1,19 @@
 #pragma once
-#include "heye/shared/std/utility.hpp"
-#include "heye/shared/std/unique.hpp"
 
 #include "ept.hpp"
 #include "vcpu.hpp"
 
 #include "heye/arch/cr.hpp"
 
-struct hypervisor : public std::singleton<hypervisor>
+namespace heye
 {
-    friend struct std::singleton<hypervisor>;
+struct hv_t
+{
+    hv_t ();
+    ~hv_t();
 
-    bool enter();
-    bool leave();
+    bool start();
+    void stop();
 
     bool is_running() const;
 
@@ -20,19 +21,17 @@ struct hypervisor : public std::singleton<hypervisor>
     ///
     cr3_t system_process_pagetable() const;
 
-    void ping() const;
-
     /// @brief Check for vmx support.
     ///
     static bool supported();
 
     /// @brief Virtual machines per core.
     ///
-    vcpu_t* vcpu;
+    vcpu_t* vcpu[MAX_CPU_COUNT];
 
-protected:
-    hypervisor();
-    ~hypervisor();
+    /// @brief Global EPT pointer used by all vcpus.
+    ///
+    ept_t* ept;
 
 private:
     /// @brief Hypervisor running state.
@@ -43,4 +42,5 @@ private:
     /// Used as `host cr3` value in vmcs. Initialized during class construction.
     ///
     cr3_t kernel_page_table;
+};
 };

@@ -2,12 +2,13 @@
 #include "heye/arch/arch.hpp"
 #include "heye/shared/trace.hpp"
 
+namespace heye
+{
 ept_t::ept_t()
 {
     // Allocate page table.
-    // There is a bug in msvc compiler that will not allow you to call `new` like this: new (std::align_val_t(0)) page_table_t.
     //
-    page_table = static_cast<page_table_t*>(operator new(sizeof(page_table_t), std::align_val_t{ PAGE_SIZE }));
+    page_table =  new page_table_t;
 
     const auto mtrr = mtrr_descriptor();
     const auto cap  = read<msr::vmx_ept_vpid_cap>();
@@ -52,4 +53,5 @@ ept_t::ept_t()
 ept_t::~ept_t()
 {
     operator delete(page_table, std::align_val_t{ PAGE_SIZE });
+}
 }

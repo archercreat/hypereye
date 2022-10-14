@@ -4,7 +4,6 @@
 
 #include "heye/arch/arch.hpp"
 
-#include "heye/shared/asserts.hpp"
 #include "heye/shared/trace.hpp"
 #include "heye/shared/cpu.hpp"
 
@@ -51,7 +50,10 @@ uint64_t adjust_controls(uint64_t value, uint64_t mask)
 }
 };
 
-vcpu_t::vcpu_t() : state(state_t::off)
+namespace heye
+{
+
+vcpu_t::vcpu_t(hv_t* hv) : hv(hv), state(state_t::off)
 {
     vmcs        = new vmx::vmcs_t;
     vmxon       = new vmx::vmcs_t;
@@ -64,17 +66,17 @@ vcpu_t::vcpu_t() : state(state_t::off)
 vcpu_t::~vcpu_t()
 {
     if (is_on())
-        leave();
+        stop();
 
-    delete vmcs;
-    delete vmxon;
-    delete stack;
-    delete msr_bitmap;
-    delete io_bitmap_a;
-    delete io_bitmap_b;
+    delete   vmcs;
+    delete   vmxon;
+    delete[] stack;
+    delete[] msr_bitmap;
+    delete[] io_bitmap_a;
+    delete[] io_bitmap_b;
 }
 
-bool vcpu_t::enter()
+bool vcpu_t::start()
 {
     if (!is_off())
         return false;
@@ -136,7 +138,7 @@ bool vcpu_t::enter()
     return is_on();
 }
 
-void vcpu_t::leave()
+void vcpu_t::stop()
 {
     logger::info("Leaving vmx root operation");
 
@@ -157,10 +159,10 @@ void vcpu_t::leave()
     //
     __stosb(reinterpret_cast<unsigned char*>(vmxon),       0, sizeof(*vmxon));
     __stosb(reinterpret_cast<unsigned char*>(vmcs),        0, sizeof(*vmcs));
-    __stosb(reinterpret_cast<unsigned char*>(msr_bitmap),  0, sizeof(msr_bitmap));
-    __stosb(reinterpret_cast<unsigned char*>(stack),       0, sizeof(stack));
-    __stosb(reinterpret_cast<unsigned char*>(io_bitmap_a), 0, sizeof(io_bitmap_a));
-    __stosb(reinterpret_cast<unsigned char*>(io_bitmap_b), 0, sizeof(io_bitmap_b));
+    __stosb(reinterpret_cast<unsigned char*>(stack),       0, KERNEL_STACK_SIZE);
+    __stosb(reinterpret_cast<unsigned char*>(msr_bitmap),  0, PAGE_SIZE);
+    __stosb(reinterpret_cast<unsigned char*>(io_bitmap_a), 0, PAGE_SIZE);
+    __stosb(reinterpret_cast<unsigned char*>(io_bitmap_b), 0, PAGE_SIZE);
     // Mark state as `off`.
     //
     state = state_t::off;
@@ -180,7 +182,7 @@ bool vcpu_t::setup_host()
     err |= vmx::write(vmx::vmcs::host_sysenter_cs, read<msr::sysenter_cs>().flags);
     // Host cr3 is taken from the hypervisor intance (initialized on driver load).
     //
-    err |= vmx::write(vmx::vmcs::host_cr3, hypervisor::get().system_process_pagetable().flags);
+    err |= vmx::write(vmx::vmcs::host_cr3, hv->system_process_pagetable().flags);
     err |= vmx::write(vmx::vmcs::host_cr4, read<cr4_t>().flags);
     err |= vmx::write(vmx::vmcs::host_cr0, read<cr0_t>().flags);
 
@@ -240,7 +242,7 @@ bool vcpu_t::setup_controls()
     err |= vmx::write(vmx::vmcs::vm_entry_controls, adjust_controls(entry_controls.flags, vmentry_control_mask()));
 
     err |= vmx::write(vmx::vmcs::msr_bitmap,  pa_from_va(msr_bitmap));
-    err |= vmx::write(vmx::vmcs::ept_pointer, ept_t::get().ept_pointer().flags);
+    err |= vmx::write(vmx::vmcs::ept_pointer, hv->ept->ept_pointer().flags);
     err |= vmx::write(vmx::vmcs::vmcs_link_pointer, ~0ull);
 
     return err == 0;
@@ -326,3 +328,4 @@ bool vcpu_t::setup_guest()
 
     return err == 0;
 }
+};

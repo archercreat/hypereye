@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+namespace heye
+{
 namespace cpu
 {
 struct context_t;
@@ -75,3 +77,4 @@ enum class exit_reason
 };
 
 extern "C" bool vmexit_handler(cpu::context_t* context);
+};
