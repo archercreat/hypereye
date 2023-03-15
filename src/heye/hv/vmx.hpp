@@ -1,132 +1,86 @@
 #pragma once
 
-#include "heye/arch/asm.hpp"
+#include "heye/arch/arch.hpp"
 
 #include "vmcall.hpp"
-#include "vmcs.hpp"
-
-#include <intrin.h>
-#include <cstdint>
 
 namespace heye::vmx
 {
-enum class invept_t : uint64_t
+bool vmcall(vmcall_reason reason, void* a1 = nullptr, void* a2 = nullptr, void* a3 = nullptr);
+
+enum status_t : uint8_t
 {
-    single_context = 1,
-    all_contexts   = 2
+    success   = 0,
+    failed_ex = 1,
+    failed    = 2
 };
 
-enum class invvpid_t : uint64_t
-{
-  individual_address                = 0,
-  single_context                    = 1,
-  all_contexts                      = 2,
-  single_context_retaining_globals  = 3,
-};
+[[nodiscard]] status_t on(uint64_t pa);
+[[nodiscard]] status_t off();
+[[nodiscard]] status_t clear(uint64_t pa);
+[[nodiscard]] status_t vmptrld(uint64_t pa);
+[[nodiscard]] status_t launch();
 
-struct invept_desc_t
+template<typename T>
+T adjust(T value)
 {
-    void* eptp;
-    void* reserved;
-};
-static_assert(sizeof(invept_desc_t) == 16);
+    static_assert(std::is_same_v<T, cr0_t>
+        || std::is_same_v<T, cr4_t>
+        || std::is_same_v<T, msr::vmx_exit_controls>
+        || std::is_same_v<T, msr::vmx_entry_controls>
+        || std::is_same_v<T, msr::vmx_pinbased_controls>
+        || std::is_same_v<T, msr::vmx_procbased_controls>
+        || std::is_same_v<T, msr::vmx_procbased_controls2>);
 
-struct invvpid_desc_t
-{
-    uint64_t vpid : 16;
-    uint64_t reserved : 48;
-    uint64_t linear_address;
-};
-static_assert(sizeof(invvpid_desc_t) == 16);
-
-inline uint8_t on(uint64_t pa)
-{
-    return __vmx_on(reinterpret_cast<uint64_t*>(&pa));
-}
-
-inline bool vmcall(vmcall_reason reason, void* a1 = nullptr, void* a2 = nullptr, void* a3 = nullptr)
-{
-    return asm_vmcall(reinterpret_cast<void*>(reason), a1, a2, a3);
-}
-
-inline void off()
-{
-    __vmx_off();
-}
-
-[[nodiscard]]
-inline uint8_t clear(uint64_t pa)
-{
-    return __vmx_vmclear(reinterpret_cast<uint64_t*>(&pa));
-}
-
-[[nodiscard]]
-inline uint8_t vmptrld(uint64_t pa)
-{
-    return __vmx_vmptrld(reinterpret_cast<uint64_t*>(&pa));
-}
-
-inline uint64_t read(vmcs field)
-{
-    uint64_t value{};
-    __vmx_vmread(static_cast<uint64_t>(field), &value);
+    uint64_t mask{};
+    const auto true_controls = heye::read<msr::vmx_basic>().true_controls;
+    if constexpr (std::is_same_v<T, msr::vmx_entry_controls>)
+    {
+        mask = true_controls ? heye::read<msr::vmx_true_entry_controls>().flags : heye::read<msr::vmx_entry_controls>().flags;
+        value.flags &= mask >> 32;
+        value.flags |= mask & 0xffffffff;
+    }
+    else if constexpr (std::is_same_v<T, msr::vmx_exit_controls>)
+    {
+        mask = true_controls ? heye::read<msr::vmx_true_exit_controls>().flags : heye::read<msr::vmx_exit_controls>().flags;
+        value.flags &= mask >> 32;
+        value.flags |= mask & 0xffffffff;
+    }
+    else if constexpr (std::is_same_v<T, msr::vmx_pinbased_controls>)
+    {
+        mask = true_controls ? heye::read<msr::vmx_true_pinbased_controls>().flags : heye::read<msr::vmx_pinbased_controls>().flags;
+        value.flags &= mask >> 32;
+        value.flags |= mask & 0xffffffff;
+    }
+    else if constexpr (std::is_same_v<T, msr::vmx_procbased_controls>)
+    {
+        mask = true_controls ? heye::read<msr::vmx_true_procbased_controls>().flags : heye::read<msr::vmx_procbased_controls>().flags;
+        value.flags &= mask >> 32;
+        value.flags |= mask & 0xffffffff;
+    }
+    else if constexpr (std::is_same_v<T, msr::vmx_procbased_controls2>)
+    {
+        mask = heye::read<msr::vmx_procbased_controls2>().flags;
+        value.flags &= mask >> 32;
+        value.flags |= mask & 0xffffffff;
+    }
+    else if constexpr (std::is_same_v<T, cr0_t>)
+    {
+        value.flags |= heye::read<msr::vmx_cr0_fixed0>().flags;
+        value.flags &= heye::read<msr::vmx_cr0_fixed1>().flags;
+    }
+    else if constexpr (std::is_same_v<T, cr4_t>)
+    {
+        value.flags |= heye::read<msr::vmx_cr4_fixed0>().flags;
+        value.flags &= heye::read<msr::vmx_cr4_fixed1>().flags;
+    }
     return value;
 }
 
-[[nodiscard]]
-inline uint8_t write(vmcs field, uint64_t value)
-{
-    return __vmx_vmwrite(static_cast<uint64_t>(field), value);
-}
-
-[[nodiscard]]
-inline uint8_t launch()
-{
-    return asm_vmlaunch();
-}
-
-/// @brief Invalidate ept.
-///
-inline uint64_t invept(invept_t type, void* ept = nullptr)
-{
-    invept_desc_t desc{ .eptp = ept };
-    return asm_invept(static_cast<uint64_t>(type), &desc);
-}
-
-/// @brief Invalidate all contexts.
-///
-inline uint64_t invept_all_contexts()
-{
-    return invept(invept_t::all_contexts);
-}
-
-inline uint64_t invvpid(invvpid_t type, invvpid_desc_t* desc = nullptr)
-{
-    if (desc == nullptr)
-    {
-        static invvpid_desc_t zero_desc{};
-        desc = &zero_desc;
-    }
-    return asm_invvpid(static_cast<uint64_t>(type), desc);
-}
-
-inline uint64_t invvpid_individual_address(uint64_t address)
-{
-    invvpid_desc_t desc{ 0, 0, address };
-    return invvpid(invvpid_t::individual_address, &desc);
-}
-
-inline uint64_t invvpid_all_contexts()
-{
-    return invvpid(invvpid_t::all_contexts);
-}
-
-// template<typename T>
-// auto adjust(T value)
-// {
-//     if constexpr (std::is_same_v<T, msr::vmx_entry_controls>)
-//     {
-
-//     }
-// }
+void inject_exception(vm_interrupt_info_t interrupt);
+void inject_exception(exception_t vector, interrupt_t type);
+void inject_exception(exception_t vector, interrupt_t type, uint32_t code);
+void inject_bp();
+void inject_gp();
+void inject_ud();
 };

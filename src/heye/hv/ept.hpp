@@ -20,7 +20,7 @@ struct ept_t final
     ept_t ();
     ~ept_t();
 
-    inline eptp_t ept_pointer() { return ept; }
+    eptp_t ept_pointer() const;
 
 private:
     eptp_t ept{};

@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+namespace heye
+{
 struct selector_t
 {
     union
@@ -10,13 +12,13 @@ struct selector_t
 
         struct
         {
-            /// @brief Requested Privilege Level.
+            /// Requested Privilege Level.
             ///
             uint16_t rpl    : 2;
-            /// @brief Table Indicator.
+            /// Table Indicator.
             ///
             uint16_t ti     : 1;
-            /// @brief Index.
+            /// Index.
             ///
             uint16_t index  : 13;
         };
@@ -41,34 +43,34 @@ struct access_t
 
         struct
         {
-            /// @brief Segment type.
+            /// Segment type.
             ///
             uint32_t type        : 4;
             /// @brief
             ///
             uint32_t dt          : 1;
-            /// @brief Requested Privilege Level.
+            /// Requested Privilege Level.
             ///
             uint32_t rpl         : 2;
-            /// @brief Segment present.
+            /// Segment present.
             ///
             uint32_t present     : 1;
             /// @brief
             ///
             uint32_t _reserved1  : 4;
-            /// @brief Available for use by system software.
+            /// Available for use by system software.
             ///
             uint32_t avl         : 1;
-            /// @brief 64-bit code segment (IA-32e mode only).
+            /// 64-bit code segment (IA-32e mode only).
             ///
             uint32_t l           : 1;
-            /// @brief Default operation size (0 = 16-bit segment; 1 = 32-bit segment).
+            /// Default operation size (0 = 16-bit segment; 1 = 32-bit segment).
             ///
             uint32_t db          : 1;
-            /// @brief Granularity.
+            /// Granularity.
             ///
             uint32_t granularity : 1;
-            /// @brief Segment is unsuable.
+            /// Segment is unsuable.
             ///
             uint32_t unusable    : 1;
         };
@@ -104,49 +106,49 @@ struct descriptor_t
 
         struct
         {
-            /// @brief Segment Limit.
+            /// Segment Limit.
             ///
             uint64_t limit_low  : 16;
-            /// @brief Segment base address.
+            /// Segment base address.
             ///
             uint64_t base_low   : 16;
-            /// @brief Segment base address.
+            /// Segment base address.
             ///
             uint64_t base_mid   : 8;
-            /// @brief Segment type.
+            /// Segment type.
             ///
             uint64_t type       : 4;
-            /// @brief Descriptor type.
+            /// Descriptor type.
             ///
             uint64_t system     : 1;
-            /// @brief Descriptor privilege level.
+            /// Descriptor privilege level.
             ///
             uint64_t dpl        : 2;
-            /// @brief Segment present.
+            /// Segment present.
             ///
             uint64_t present    : 1;
-            /// @brief Segment Limit.
+            /// Segment Limit.
             ///
             uint64_t limit_high : 4;
-            /// @brief Available for use by system software.
+            /// Available for use by system software.
             ///
             uint64_t avl        : 1;
-            /// @brief 64-bit code segment (IA-32e mode only).
+            /// 64-bit code segment (IA-32e mode only).
             ///
             uint64_t l          : 1;
-            /// @brief Default operation size (0 = 16-bit segment; 1 = 32-bit segment).
+            /// Default operation size (0 = 16-bit segment; 1 = 32-bit segment).
             ///
             uint64_t db         : 1;
-            /// @brief Granularity.
+            /// Granularity.
             ///
             uint64_t granularity: 1;
-            /// @brief Segment base address.
+            /// Segment base address.
             ///
             uint64_t base_high  : 8;
         };
     };
 
-    /// @brief Segment base address.
+    /// Segment base address.
     ///
     uint64_t base_upper   : 32;
     uint64_t must_be_zero : 32;
@@ -169,7 +171,7 @@ struct descriptor_t
 };
 static_assert(sizeof(descriptor_t) ==  16, "segment descriptor size mismatch");
 
-/// @brief Descriptor table register.
+/// Descriptor table register.
 ///
 #pragma pack(push, 1)
 struct gdtr_t
@@ -184,7 +186,8 @@ struct gdtr_t
 #pragma pack(pop)
 static_assert(sizeof(gdtr_t) == 10, "Gdtr size mismatch");
 
-/// @brief Same for interrupt descriptor table register.
+/// Same for interrupt descriptor table register.
 ///
 struct idtr_t : public gdtr_t {};
 static_assert(sizeof(idtr_t) == 10, "Idtr size mismatch");
+};

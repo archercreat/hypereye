@@ -3,6 +3,8 @@
 
 #include <cstdint>
 
+namespace heye
+{
 enum memory_type_t
 {
     uncachable      = 0,
@@ -17,7 +19,8 @@ inline uint64_t operator""_mb(uint64_t size) { return size * 1024_kb; }
 inline uint64_t operator""_gb(uint64_t size) { return size * 1024_mb; }
 
 
-inline uint64_t pfn(uint64_t pa) { return pa >> PAGE_SHIFT; }
+inline uint64_t pfn(uint64_t pa) { return pa >> page_shift; }
 
 uint64_t pa_from_va(const void* va);
 void*    va_from_pa(uint64_t    pa);
+};

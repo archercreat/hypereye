@@ -1,7 +1,7 @@
 #pragma once
 
-#define MAX_CPU_COUNT       256
-#define POOL_TAG            'HEYE'
-#define PAGE_SIZE           0x1000
-#define PAGE_SHIFT          12
-#define KERNEL_STACK_SIZE   6 * PAGE_SIZE
+static constexpr auto max_cpu_count     = 256;
+static constexpr auto pool_tag          = 'heye';
+static constexpr auto page_size         = 0x1000;
+static constexpr auto page_shift        = 12;
+static constexpr auto kernel_stack_size = 6 * page_size;

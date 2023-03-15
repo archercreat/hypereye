@@ -7,7 +7,7 @@
 
 namespace heye
 {
-hv_t::hv_t() : state(state_t::off), kernel_page_table(read<cr3_t>())
+hv_t::hv_t(setup_cb_t setup, teardown_cb_t teardown, vmexit_cb_t vmexit) : state(state_t::off), kernel_page_table(read<cr3_t>())
 {
     // Although all `new` allocations come from `ExAllocatePoolZero`, we zero initialize vcpu array.
     //
@@ -16,7 +16,7 @@ hv_t::hv_t() : state(state_t::off), kernel_page_table(read<cr3_t>())
     //
     for (size_t core = 0; core < cpu::count(); core++)
     {
-        vcpu[core] = new vcpu_t(this);
+        vcpu[core] = new vcpu_t(this, setup, teardown, vmexit);
     }
     // Allocate and initialize ept.
     //
@@ -35,6 +35,7 @@ hv_t::~hv_t()
             delete core;
         }
     }
+    delete ept;
 }
 
 bool hv_t::supported()

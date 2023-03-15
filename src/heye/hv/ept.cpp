@@ -52,6 +52,11 @@ ept_t::ept_t()
 
 ept_t::~ept_t()
 {
-    operator delete(page_table, std::align_val_t{ PAGE_SIZE });
+    delete page_table;
+}
+
+eptp_t ept_t::ept_pointer() const
+{
+    return ept;
 }
 }

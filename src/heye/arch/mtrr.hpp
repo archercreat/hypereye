@@ -4,6 +4,8 @@
 
 #include <cstdint>
 
+namespace heye
+{
 struct mtrr_range
 {
     uint64_t      base;
@@ -15,13 +17,13 @@ struct mtrr_descriptor
 {
     mtrr_descriptor();
 
-    /// @brief Helper functions for `for` iterator.
+    /// Helper functions for `for` iterator.
     ///
     auto   begin() const { return &mtrr[0];                         }
     auto   end()   const { return &mtrr[size()];                    }
     size_t size()  const { return fixed_count + variable_available; }
 
-    /// @brief Get memory type of the physical address, return default if not found.
+    /// Get memory type of the physical address, return default if not found.
     ///
     memory_type_t get_type_or(uint64_t pa, memory_type_t def) const;
 
@@ -41,7 +43,7 @@ private:
         }
     };
 
-    /// @brief Architecture defined number of fixed mtrr registers.
+    /// Architecture defined number of fixed mtrr registers.
     /// 1 register for 64k, 2 registers for 16k and 8 registers for 4k.
     /// Each register has 8 ranges as per "Fixed Range MTRRs" states.
     ///
@@ -60,4 +62,5 @@ private:
     };
 
     size_t variable_available;
+};
 };

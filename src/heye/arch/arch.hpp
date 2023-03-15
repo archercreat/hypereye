@@ -1,18 +1,22 @@
 #pragma once
 
-#include "dr.hpp"
-#include "cpuid.hpp"
-#include "msr.hpp"
-#include "cr.hpp"
+#include "exceptions.hpp"
 #include "segments.hpp"
-#include "asm.hpp"
-#include "mtrr.hpp"
 #include "memory.hpp"
+#include "cpuid.hpp"
+#include "mtrr.hpp"
+#include "msr.hpp"
+#include "asm.hpp"
+#include "vmx.hpp"
+#include "cr.hpp"
+#include "dr.hpp"
 
 #include "heye/shared/std/traits.hpp"
 
 #include <intrin.h>
 
+namespace heye
+{
 template<typename T> requires (!std::has_subleaf_v<T> && std::has_leaf_v<T>)
 inline T read()
 {
@@ -76,6 +80,18 @@ template <> inline void write(idtr_t idtr)
     asm_write_idtr(&idtr);
 }
 
+template<vmx::vmcs field> inline uint64_t read()
+{
+    uint64_t value{};
+    __vmx_vmread(static_cast<uint64_t>(field), &value);
+    return value;
+}
+
+template<vmx::vmcs field> inline uint64_t write(uint64_t value)
+{
+    return __vmx_vmwrite(static_cast<uint64_t>(field), value);
+}
+
 #define impl_read(name)                                                                 \
     template<> inline segment_t<name ##_t> read()                                       \
     {                                                                                   \
@@ -116,3 +132,4 @@ impl_read(tr);
 impl_read(ldtr);
 
 #undef impl_read
+};

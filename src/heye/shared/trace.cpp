@@ -9,7 +9,7 @@
 #include <cstdarg>
 #include <stdio.h>
 
-/// @brief GUID: {60c3d354-edc4-4d20-8132-e16d9eeba96c}
+/// GUID: {60c3d354-edc4-4d20-8132-e16d9eeba96c}
 ///
 TRACELOGGING_DECLARE_PROVIDER(provider);
 TRACELOGGING_DEFINE_PROVIDER(
@@ -44,7 +44,8 @@ bool logger::setup()
 
 void logger::teardown()
 {
-    TraceLoggingUnregister(provider);
+    if (detail::initialized)
+        TraceLoggingUnregister(provider);
     detail::initialized = false;
 }
 

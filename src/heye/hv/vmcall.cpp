@@ -1,4 +1,5 @@
 #include "vmcall.hpp"
+#include "vcpu.hpp"
 #include "vmx.hpp"
 
 #include "heye/arch/arch.hpp"
@@ -8,10 +9,9 @@
 
 namespace heye
 {
-bool handle_vmcall(cpu::context_t* context)
+bool handle_vmcall(vcpu_t* vcpu)
 {
-    bool terminate    = false;
-    const auto reason = static_cast<vmcall_reason>(context->rcx);
+    auto reason = static_cast<vmcall_reason>(vcpu->regs().rcx);
 
     switch (reason)
     {
@@ -25,21 +25,17 @@ bool handle_vmcall(cpu::context_t* context)
         logger::info("vmxoff called");
         // Set rcx to the next instruction address and rdx to the guest stack pointer.
         //
-        context->rax = 1;
-        context->rcx = vmx::read(vmx::vmcs::guest_rip) + vmx::read(vmx::vmcs::vm_exit_instruction_len);
-        context->rdx = vmx::read(vmx::vmcs::guest_rsp);
+        vcpu->regs().rip = read<vmx::vmcs::guest_rip>() + read<vmx::vmcs::vm_exit_instruction_len>();
         // Since we will not vmresume, we must overwrite host cr3 with the guest cr3.
         //
-        write<cr3_t> (cr3_t{ vmx::read(vmx::vmcs::guest_cr3) });
-        write<gdtr_t>(gdtr_t{ static_cast<uint16_t>(vmx::read(vmx::vmcs::guest_gdtr_limit) & 0xffff), vmx::read(vmx::vmcs::guest_gdtr_base) });
-        write<idtr_t>(idtr_t{ static_cast<uint16_t>(vmx::read(vmx::vmcs::guest_idtr_limit) & 0xffff), vmx::read(vmx::vmcs::guest_idtr_base) });
-
-        terminate = true;
-        break;
+        write<cr3_t> (cr3_t{ read<vmx::vmcs::guest_cr3>() });
+        write<gdtr_t>(gdtr_t{ static_cast<uint16_t>(read<vmx::vmcs::guest_gdtr_limit>() & 0xffff), read<vmx::vmcs::guest_gdtr_base>() });
+        write<idtr_t>(idtr_t{ static_cast<uint16_t>(read<vmx::vmcs::guest_idtr_limit>() & 0xffff), read<vmx::vmcs::guest_idtr_base>() });
+        return true;
     }
     default:
         break;
     }
-    return terminate;
+    return false;
 }
 };

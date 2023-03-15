@@ -1,6 +1,8 @@
 #include "heye/arch/arch.hpp"
 #include "heye/shared/trace.hpp"
 
+namespace heye
+{
 mtrr_descriptor::mtrr_descriptor() : variable_available(0)
 {
     uint64_t index{};
@@ -30,8 +32,8 @@ mtrr_descriptor::mtrr_descriptor() : variable_available(0)
             _BitScanForward64(&length, physmask.pfn);
 
             mtrr[index + variable_available].type = static_cast<memory_type_t>(physbase.type);
-            mtrr[index + variable_available].base = (physbase.pfn << PAGE_SHIFT);
-            mtrr[index + variable_available].size = (physbase.pfn + (1ull << length)) << PAGE_SHIFT;
+            mtrr[index + variable_available].base = (physbase.pfn << page_shift);
+            mtrr[index + variable_available].size = (physbase.pfn + (1ull << length)) << page_shift;
             variable_available++;
         }
     }
@@ -53,3 +55,4 @@ memory_type_t mtrr_descriptor::get_type_or(uint64_t pa, memory_type_t def) const
     }
     return def;
 }
+};
